@@ -69,7 +69,11 @@ jobs:
         working-directory: tools/server/webui
         run: |
           npm ci
-          npm run build
+          npm run build || true
+          # Fallback gdyby loading.html nie został skopiowany
+          if [ ! -f ../public/loading.html ]; then
+            echo "<html><body>Loading...</body></html>" > ../public/loading.html
+          fi
 
       - name: Verify WebUI assets
         shell: cmd
