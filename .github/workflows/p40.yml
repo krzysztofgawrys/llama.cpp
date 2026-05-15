@@ -65,11 +65,15 @@ jobs:
           node-version: '20'
 
       - name: Build WebUI
-        shell: cmd
+        shell: bash
         working-directory: tools/server/webui
         run: |
           npm ci
           npm run build
+
+      - name: Verify WebUI assets
+        shell: cmd
+        run: dir tools\server\public\
 
       - name: Configure CMake with FORCE_MMQ
         shell: cmd
