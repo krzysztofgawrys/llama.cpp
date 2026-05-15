@@ -50,6 +50,11 @@ jobs:
           key: p40-cuda-${{ env.CUDA_VERSION }}-msvc
           variant: ccache
           max-size: 2G
+
+      - name: Setup Node.js for WebUI
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       
       - name: Configure CMake with FORCE_MMQ
         shell: cmd
