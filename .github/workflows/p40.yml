@@ -1,0 +1,92 @@
+name: Build P40 Windows CUDA
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'p40-*'
+
+env:
+  CUDA_VERSION: '12.4.0'
+
+jobs:
+  windows-cuda-p40:
+    runs-on: windows-2022
+    
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+      
+      # Cache CUDA Toolkit installer (network installer ~50MB, ale faster setup)
+      - name: Cache CUDA Toolkit
+        id: cache-cuda
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4
+          key: cuda-${{ env.CUDA_VERSION }}-windows-v2
+      
+      - name: Install CUDA Toolkit
+        if: steps.cache-cuda.outputs.cache-hit != 'true'
+        uses: Jimver/cuda-toolkit@v0.2.19
+        with:
+          cuda: ${{ env.CUDA_VERSION }}
+          method: 'network'
+          sub-packages: '["nvcc", "cudart", "cublas", "cublas_dev", "thrust", "visual_studio_integration"]'
+      
+      - name: Set CUDA env vars (when cache hit)
+        if: steps.cache-cuda.outputs.cache-hit == 'true'
+        shell: cmd
+        run: |
+          echo CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4>> %GITHUB_ENV%
+          echo CUDA_PATH_V12_4=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4>> %GITHUB_ENV%
+          echo C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin>> %GITHUB_PATH%
+          echo C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\libnvvp>> %GITHUB_PATH%
+      
+      # Setup ccache for compilation caching
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: p40-cuda-${{ env.CUDA_VERSION }}-msvc
+          variant: ccache
+          max-size: 2G
+      
+      - name: Configure CMake with FORCE_MMQ
+        shell: cmd
+        run: |
+          cmake -B build ^
+            -DGGML_CUDA=ON ^
+            -DGGML_CUDA_FORCE_MMQ=ON ^
+            -DGGML_CUDA_F16=OFF ^
+            -DCMAKE_CUDA_ARCHITECTURES=61 ^
+            -DLLAMA_BUILD_SERVER=ON ^
+            -DLLAMA_CURL=OFF ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache ^
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache ^
+            -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache
+      
+      - name: Build
+        shell: cmd
+        run: cmake --build build --config Release -j 2
+      
+      - name: Show ccache stats
+        shell: cmd
+        run: ccache -s
+      
+      - name: Package binaries
+        shell: cmd
+        run: |
+          mkdir release
+          copy build\bin\Release\*.exe release\
+          copy build\bin\Release\*.dll release\
+          copy "%CUDA_PATH%\bin\cudart64_*.dll" release\
+          copy "%CUDA_PATH%\bin\cublas64_*.dll" release\
+          copy "%CUDA_PATH%\bin\cublasLt64_*.dll" release\
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-p40-windows-cuda12
+          path: release/
+          retention-days: 30
