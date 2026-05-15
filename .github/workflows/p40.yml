@@ -16,16 +16,15 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v4
-      
-      # Cache CUDA Toolkit installer (network installer ~50MB, ale faster setup)
-      - name: Cache CUDA Toolkit
+
+      - name: Restore CUDA cache
         id: cache-cuda
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4
           key: cuda-${{ env.CUDA_VERSION }}-windows-v2
-      
+
       - name: Install CUDA Toolkit
         if: steps.cache-cuda.outputs.cache-hit != 'true'
         uses: Jimver/cuda-toolkit@v0.2.19
@@ -33,7 +32,15 @@ jobs:
           cuda: ${{ env.CUDA_VERSION }}
           method: 'network'
           sub-packages: '["nvcc", "cudart", "cublas", "cublas_dev", "thrust", "visual_studio_integration"]'
-      
+
+      - name: Save CUDA cache
+        if: steps.cache-cuda.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4
+          key: cuda-${{ env.CUDA_VERSION }}-windows-v2
+
       - name: Set CUDA env vars (when cache hit)
         if: steps.cache-cuda.outputs.cache-hit == 'true'
         shell: cmd
@@ -42,7 +49,7 @@ jobs:
           echo CUDA_PATH_V12_4=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4>> %GITHUB_ENV%
           echo C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin>> %GITHUB_PATH%
           echo C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\libnvvp>> %GITHUB_PATH%
-      
+
       # Setup ccache for compilation caching
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
