@@ -79,6 +79,12 @@ jobs:
         shell: cmd
         run: dir tools\server\public\
 
+      - name: Install Vulkan SDK
+        uses: humbletim/install-vulkan-sdk@v1.2
+        with:
+          version: 1.3.290.0
+          cache: true
+
       - name: Configure CMake with FORCE_MMQ
         shell: cmd
         run: |
@@ -89,6 +95,7 @@ jobs:
             -DCMAKE_CUDA_ARCHITECTURES=61 ^
             -DLLAMA_BUILD_SERVER=ON ^
             -DLLAMA_CURL=OFF ^
+            -DGGML_VULKAN=ON ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_C_COMPILER_LAUNCHER=ccache ^
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache ^
